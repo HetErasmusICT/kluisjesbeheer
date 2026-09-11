@@ -257,7 +257,17 @@ class MagisterClient:
             raise ConnectionError('Onverwachte fout bij het benaderen van de Magister-webservice.')
 
         if root.findtext('Result') == 'False':
-            msg = root.findtext('Fout_omschrijving') or root.findtext('ResultMessage') or 'onbekende fout'
+            # Magister nests the detail in <Table><Regels><Regel><Fout_omschrijving>,
+            # so a direct-child lookup turned every failure into 'onbekende fout'
+            # and left the Magister admin with nothing to act on. Search the whole
+            # tree, and pass the foutcode along when there is one (10 = the account
+            # has no rights on this layout, or the layout does not exist).
+            msg = (root.findtext('.//Fout_omschrijving')
+                   or root.findtext('ResultMessage')
+                   or 'onbekende fout')
+            code = root.findtext('.//Foutcode')
+            if code:
+                msg = f'{msg} (foutcode {code})'
             raise ConnectionError(f'Magister GetData mislukt voor lijst "{layout}": {msg}')
         exc = root.findtext('Exception')
         if exc:

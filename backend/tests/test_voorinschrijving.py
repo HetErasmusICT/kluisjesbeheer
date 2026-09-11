@@ -1,6 +1,8 @@
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 
@@ -154,6 +156,30 @@ def test_get_data_parses_records(monkeypatch):
     assert records[0]['Leerlingnummer'] == '9001'
     assert records[0]['Voornaam'] == 'Bo'
     assert records[1]['Tussenvoegsel'] == 'de'
+
+
+def test_get_data_surfaces_nested_error(monkeypatch):
+    """Magister puts the error detail in <Table><Regels><Regel><Fout_omschrijving>,
+    not at the root. Reading only direct children turned every GetData failure
+    into a useless "onbekende fout" for the admin who has to act on it."""
+    import magister_client as mc
+    client = mc.MagisterClient(url='http://x', user='u', password='p')
+    monkeypatch.setattr(client, '_login', lambda: 'TOKEN')
+    xml = (
+        '<Response><Result>False</Result><Table><Regels><Regel>'
+        '<Foutcode>10</Foutcode>'
+        '<Fout_omschrijving>Gebruikersaccount heeft geen recht op deze layout!</Fout_omschrijving>'
+        '</Regel></Regels></Table></Response>'
+    )
+
+    class FakeResp:
+        text = xml
+
+    monkeypatch.setattr(mc.requests, 'get', lambda *a, **k: FakeResp())
+    with pytest.raises(ConnectionError) as exc:
+        client.get_data('sql-get-kluisjes-voorinschrijving')
+    assert 'geen recht op deze layout' in str(exc.value)
+    assert 'onbekende fout' not in str(exc.value)
 
 
 # ---------------------------------------------------------------------------
