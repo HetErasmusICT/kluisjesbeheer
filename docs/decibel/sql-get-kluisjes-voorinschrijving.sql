@@ -4,49 +4,104 @@
 -- Doel    : leerlingen die voor het KOMENDE schooljaar zijn geplaatst,
 --           voor de kluisjes-voorinschrijving. In de app KLASLOOS
 --           importeren; Klas + Email staan er alleen ter controle in.
--- Filter  : peildatum 1 sept van het komende schooljaar - zelfde
---           dBegin/dEinde/dVertrek-logica als sql-get-isk-leerlingen,
---           maar met een TOEKOMSTIGE peildatum i.p.v. GETDATE().
--- Auteur  : Vincent + Claude, 2026-06-26
--- Status  : * SQL geverifieerd in Decibel (F9 geeft volgend-jaars rijen,
---             o.a. PrO-klassen 456*/F3L45 met locatie "HET ERASMUS
---             vestiging PrO").
---           * Controle-telling: Magister Desktop "Actieve leerlingen 2026-2027"
---             op peildatum 01-08-2026 = 436 totaal (waarvan 239 MAVO/HAVO/VWO).
---             Deze lijst zonder vestiging-filter hoort ~436 rijen te geven.
---           * Webservice (Data.GetData) + account-koppeling: nog te testen.
--- Account : Erasmus-kluisjesapp gebruikt vermoedelijk webservice-user
---           `webuser` (heeft al kluisjes-actueel/zoek-kluiscode) - nog te
---           bevestigen op CT101. Hengelo gebruikt `Kluisjesmodule`.
+-- Filter  : de eerstvolgende lesperiode uit sis_blpe, dus het schooljaar
+--           dat nog moet beginnen. De query zoekt dat zelf op, er zit
+--           GEEN datum in die jaarlijks bijgewerkt moet worden.
+-- Auteur  : Vincent + Claude, 2026-06-26, herzien 2026-09-11
+-- Status  : SYNTAX GEACCEPTEERD, UITVOER NOG NIET GEVERIFIEERD.
+--           Bij OSG Hengelo (11 sept 2026) draait de query en kloppen de
+--           kolomnamen, maar hij gaf 0 rijen omdat schooljaar 2027-2028
+--           daar nog niet bestaat. Dat is correct gedrag (zie "Nul rijen"),
+--           maar het betekent ook dat de joins, de locatie-COALESCE en het
+--           weggelaten statusfilter nog nergens echte rijen hebben
+--           opgeleverd. Eerste echte toets: draai hem bij Het Erasmus met
+--           WHERE GETDATE() BETWEEN dBegin AND dEinde en vergelijk met de
+--           oude lijst (686 leerlingen over 3 administratieve eenheden).
 -- Aanroep : GET <url>/?library=Data&function=GetData
 --                 &Layout=sql-get-kluisjes-voorinschrijving
 --                 &SessionToken=<token>&Type=XML
 --           (DD-lijsten gaan via library=Data, NIET ADFuncties.)
+--
+-- LET OP bij het bewerken van dit bestand
+-- ---------------------------------------
+-- Zet NOOIT een hekje in deze SQL, ook niet in een commentaarregel.
+-- Decibel leest commentaar mee bij het zoeken naar placeholders en
+-- struikelt erover met de melding "'p' is not a valid integer value".
+-- Een eerdere versie had de tip "later parametriseren met <hekje>peildatum
+-- <hekje>" in een comment staan en daardoor weigerde de hele lijst te
+-- draaien. De twee ISK-lijsten die al jaren draaien bevatten geen enkel
+-- hekje; gewoon commentaar met twee streepjes is wel prima.
+--
+-- Waarom geen parameter
+-- ---------------------
+-- De app stuurt een peildatum-parameter mee, maar Magister gebruikt dat
+-- mechanisme in zijn eigen lijsten nergens. De ingebouwde lijsten
+-- (vanr_LeerlingGegevensPeilDatum en verwanten) halen de peildatum uit
+-- sis_blpe, de tabel met lesperiodes/schooljaren. Dat patroon volgen we
+-- hier: het schooljaar wordt opgezocht, niet berekend en niet meegegeven.
+-- Gevolg: het schooljaar-veld in de app bepaalt alleen het label waaronder
+-- de leerlingen worden weggeschreven, niet welke leerlingen je krijgt.
+--
+-- Nul rijen
+-- ---------
+-- Zolang de school het volgende schooljaar nog niet heeft aangemaakt in
+-- Magister, bestaat er geen lesperiode die nog moet beginnen en geeft de
+-- lijst niets terug. Dat ziet eruit als een kapotte lijst maar is correct:
+-- die leerlingen zijn domweg nog niet geplaatst. Scholen maken dat record
+-- meestal in het voorjaar aan. Beter nul rijen dan stilzwijgend het
+-- verkeerde cohort, wat gebeurde toen de peildatum hier hardcoded stond.
+--
+-- Controleren of de joins kloppen: vervang eenmalig
+--   WHERE dBegin > GETDATE()
+-- door
+--   WHERE GETDATE() BETWEEN dBegin AND dEinde
+-- en druk F9. Dan krijg je de huidige populatie te zien. Daarna terugzetten.
 -- =====================================================================
 
 SELECT DISTINCT
-    sis_leer.stamnr       AS Leerlingnummer,
-    sis_leer.roepnaam     AS Voornaam,
-    sis_leer.tussenvoeg   AS Tussenvoegsel,
-    sis_leer.achternaam   AS Achternaam,
-    sis_leer.email        AS Email,
-    sis_blok.omschr       AS Locatie,
-    sis_bgrp.groep        AS Klas          -- alleen ter controle, NIET importeren in de app
-FROM sis_leer sis_leer
-    INNER JOIN sis_aanm sis_aanm ON sis_leer.stamnr    = sis_aanm.stamnr
-    LEFT  JOIN sis_bgrp sis_bgrp ON sis_aanm.idBgrp    = sis_bgrp.idBgrp
-    LEFT  JOIN sis_blok sis_blok ON sis_bgrp.c_lokatie = sis_blok.c_lokatie
-WHERE
-    -- Peildatum in het KOMENDE schooljaar (later parametriseren met #peildatum#):
-    sis_aanm.dBegin    <= '2026-08-01'
-    AND sis_aanm.dEinde    >= '2026-08-01'
-    AND (sis_aanm.dVertrek >= '2026-08-01' OR sis_aanm.dVertrek IS NULL)
-ORDER BY sis_leer.stamnr;
+    np.omschr_k     AS Schooljaar,
+    l.stamnr        AS Leerlingnummer,
+    l.roepnaam      AS Voornaam,
+    l.tussenvoeg    AS Tussenvoegsel,
+    l.achternaam    AS Achternaam,
+    l.email         AS Email,
+    loc.omschr      AS Locatie,
+    klas.groep      AS Klas
+FROM sis_leer l
+    INNER JOIN sis_aanm a ON a.stamnr = l.stamnr
+    INNER JOIN (
+        SELECT TOP 1 lesperiode, omschr_k
+        FROM sis_blpe
+        WHERE dBegin > GETDATE()
+        ORDER BY dBegin
+    ) np ON np.lesperiode = a.lesperiode
+    INNER JOIN sis_stud s    ON s.idStud    = a.idStud
+    LEFT  JOIN sis_bgrp klas ON klas.idBgrp = a.idBgrp
+    INNER JOIN sis_blok loc  ON loc.idBlok  = COALESCE(klas.idBlok, s.idBlok)
+ORDER BY l.stamnr;
 
--- Optioneel - beperk tot bepaalde vestiging(en):
---   AND sis_blok.c_lokatie IN ('...')
+-- Kolom Schooljaar staat er bewust in: bij een F9 zie je meteen welk jaar
+-- de lijst pakt. De app negeert kolommen die hij niet kent.
 --
--- Alternatief next-year-filter via STUDYPERIOD (als de peildatum niet bevalt):
---   LEFT JOIN sis_allp ON sis_aanm.stamnr = sis_allp.stamnr AND sis_aanm.lesperiode = sis_allp.lesperiode
---   LEFT JOIN sis_blpe ON sis_allp.lesperiode = sis_blpe.lesperiode
---   WHERE sis_blpe.omschr_k = '2026-2027'
+-- Kolom Klas bevat de NIEUWE klas van volgend jaar. Die wordt bewust niet
+-- geimporteerd (de leerling komt klasloos binnen); hij staat er alleen ter
+-- controle in. De echte klas komt op 1 augustus via de gewone sync.
+--
+-- Locatie via COALESCE(klas.idBlok, s.idBlok): leerlingen die nog geen klas
+-- hebben, en dat zijn er bij een voorinschrijving veel, vallen anders uit de
+-- lijst of krijgen een lege locatie. De oude versie joinde via
+-- sis_bgrp.c_lokatie en gaf bij Het Erasmus maar 686 leerlingen over 3
+-- administratieve eenheden, met ISK en de HAVO/VWO-bovenbouw structureel
+-- ontbrekend. Dit is de vermoedelijke oorzaak daarvan.
+--
+-- Optioneel statusfilter, overgenomen uit Magisters eigen
+-- vanr_LeerlingGegevensPeilDatum maar NIET getest op voorinschrijvingen:
+--   WHERE a.idHrnaanmeldingsstatus = 2
+-- Bewust weggelaten. Als volgend-jaars plaatsingen een andere status
+-- hebben, filtert die regel precies de leerlingen weg die je zoekt, en te
+-- veel rijen is hier het veiligere probleem dan te weinig. Zodra er echt
+-- rijen uit de lijst komen: draai hem een keer met en een keer zonder deze
+-- regel en vergelijk de aantallen.
+--
+-- Optioneel, beperk tot bepaalde vestiging(en):
+--   AND loc.c_lokatie IN ('...')

@@ -25,8 +25,7 @@ een aanvulling daarop.
 
 De gewone leerling-sync gebruikt `ADFuncties.GetActiveStudents`, en die geeft alleen de
 **huidige** leerlingen. Voor de **volgend-jaars** leerlingen is een aparte opzoeklijst (een
-Decibel DD-lijst) nodig die filtert op een toekomstige peildatum (1 augustus van het komende
-schooljaar).
+Decibel DD-lijst) nodig die de inschrijvingen van het eerstvolgende schooljaar ophaalt.
 
 ### Stappen
 
@@ -40,17 +39,31 @@ schooljaar).
    (De naam is in de app instelbaar via de instelling `voorinschrijving_lijst`; standaard is het
    bovenstaande. Houd het op de standaardnaam tenzij je een reden hebt om af te wijken.)
 
-3. Plak de SQL uit het blok onderaan deze instructie (zie **Bijlage: SQL**). **Pas de peildatum
-   aan:** vervang alle drie de `'2026-08-01'` door **1 augustus van het komende schooljaar**.
-4. Test in Decibel (toets **F9**). Je hoort de volgend-jaars leerlingen te zien, met de kolommen
-   `Leerlingnummer`, `Voornaam`, `Tussenvoegsel`, `Achternaam`, `Email`, `Locatie`, `Klas`.
+3. Plak de SQL uit het blok onderaan deze instructie (zie **Bijlage: SQL**). Er is niets in aan
+   te passen: de query zoekt zelf het eerstvolgende schooljaar op.
+
+   > ⚠️ Zet geen hekje in de query, ook niet in een commentaarregel. Decibel leest commentaar mee
+   > bij het zoeken naar placeholders en weigert dan te draaien met de melding
+   > *"'p' is not a valid integer value"*.
+
+4. Test in Decibel (toets **F9**). Je krijgt de kolommen `Schooljaar`, `Leerlingnummer`,
+   `Voornaam`, `Tussenvoegsel`, `Achternaam`, `Email`, `Locatie`, `Klas`.
+
+   **Nul rijen is normaal** zolang de school het komende schooljaar nog niet heeft aangemaakt in
+   Magister. Die leerlingen zijn dan nog niet geplaatst; de lijst gaat vanzelf werken zodra dat
+   wel zo is. Wil je toch controleren of de joins kloppen, vervang dan eenmalig
+   `WHERE dBegin > GETDATE()` door `WHERE GETDATE() BETWEEN dBegin AND dEinde`, druk F9 (je ziet
+   dan de huidige leerlingen) en zet het daarna terug.
 5. Geef het **kluisjes-webservice-account** leesrecht op deze lijst/layout. Dat is hetzelfde
    account dat in de app onder **Beheer -> Import** als Magister-account is ingevuld (per school
    verschillend, bijvoorbeeld `webuser` of `Kluisjesmodule`). Zonder dit recht geeft de
    webservice foutcode **10**: "Gebruikersaccount heeft geen recht op deze layout".
+
+   > ⚠️ Draait je installatie op een build **ouder dan 212**, dan slikt de app die tekst in en
+   > toon hij alleen "onbekende fout". Zie je dat, ga er dan van uit dat het om dit recht gaat.
 6. Ga in de app naar **Beheer -> Import**, onderaan het paneel **Voorinschrijving volgend
-   schooljaar**. Vul het schooljaar in (bijvoorbeeld `2026-2027`) en klik op **Importeer via
-   Magister**.
+   schooljaar**. Vul het komende schooljaar in (vorm `2027-2028`) en klik op **Importeer via
+   Magister**. Dat veld bepaalt alleen het label waaronder de leerlingen worden weggeschreven.
 
 > ℹ️ Het account heeft naast deze lijst nog steeds `Algemeen.Login` en
 > `ADFuncties.GetActiveStudents` nodig voor de gewone dagelijkse sync. De opzoeklijst komt daar
@@ -60,9 +73,13 @@ schooljaar).
 > kluisjes-server al geregeld en werkt deze knop ook. Zo niet, zie de IP-whitelist-stap in
 > [HANDLEIDING.md, hoofdstuk 13](HANDLEIDING.md).
 
-> 🔧 **Tip voor volgend jaar:** de peildatum staat nu hard in de SQL. Pas hem elk schooljaar aan
-> (stap 3). Wie het netjes wil, kan de drie datums vervangen door de placeholder `#peildatum#`;
-> de app stuurt namelijk al een `peildatum`-parameter mee. Dat is optioneel.
+> ℹ️ **Geen jaarlijks onderhoud.** De query leest het eerstvolgende schooljaar uit `sis_blpe`, de
+> tabel met lesperiodes. Je hoeft er dus nooit een datum in bij te werken. Dit is hetzelfde patroon
+> dat Magisters eigen lijsten (`vanr_LeerlingGegevensPeilDatum` en verwanten) gebruiken.
+>
+> Gevolg: het schooljaar dat je in de app invult bepaalt alleen het label waaronder de leerlingen
+> worden weggeschreven, niet welke leerlingen je krijgt. De app stuurt wel een `peildatum`-parameter
+> mee, maar deze lijst gebruikt die niet.
 
 ---
 
@@ -98,31 +115,42 @@ schooljaar).
 
 ## Bijlage: SQL (voor Optie A)
 
-De canonieke versie staat in de repository onder
+De canonieke versie, met alle toelichting, staat in de repository onder
 [`docs/decibel/sql-get-kluisjes-voorinschrijving.sql`](../decibel/sql-get-kluisjes-voorinschrijving.sql).
-Vervang de drie peildatums (`'2026-08-01'`) door 1 augustus van het komende schooljaar.
+Plak hem over; er is niets in aan te passen.
 
 ```sql
 SELECT DISTINCT
-    sis_leer.stamnr       AS Leerlingnummer,
-    sis_leer.roepnaam     AS Voornaam,
-    sis_leer.tussenvoeg   AS Tussenvoegsel,
-    sis_leer.achternaam   AS Achternaam,
-    sis_leer.email        AS Email,
-    sis_blok.omschr       AS Locatie,
-    sis_bgrp.groep        AS Klas          -- alleen ter controle, NIET importeren in de app
-FROM sis_leer sis_leer
-    INNER JOIN sis_aanm sis_aanm ON sis_leer.stamnr    = sis_aanm.stamnr
-    LEFT  JOIN sis_bgrp sis_bgrp ON sis_aanm.idBgrp    = sis_bgrp.idBgrp
-    LEFT  JOIN sis_blok sis_blok ON sis_bgrp.c_lokatie = sis_blok.c_lokatie
-WHERE
-    -- Peildatum in het KOMENDE schooljaar (pas alle drie de datums aan):
-    sis_aanm.dBegin    <= '2026-08-01'
-    AND sis_aanm.dEinde    >= '2026-08-01'
-    AND (sis_aanm.dVertrek >= '2026-08-01' OR sis_aanm.dVertrek IS NULL)
-ORDER BY sis_leer.stamnr;
+    np.omschr_k     AS Schooljaar,
+    l.stamnr        AS Leerlingnummer,
+    l.roepnaam      AS Voornaam,
+    l.tussenvoeg    AS Tussenvoegsel,
+    l.achternaam    AS Achternaam,
+    l.email         AS Email,
+    loc.omschr      AS Locatie,
+    klas.groep      AS Klas
+FROM sis_leer l
+    INNER JOIN sis_aanm a ON a.stamnr = l.stamnr
+    INNER JOIN (
+        SELECT TOP 1 lesperiode, omschr_k
+        FROM sis_blpe
+        WHERE dBegin > GETDATE()
+        ORDER BY dBegin
+    ) np ON np.lesperiode = a.lesperiode
+    INNER JOIN sis_stud s    ON s.idStud    = a.idStud
+    LEFT  JOIN sis_bgrp klas ON klas.idBgrp = a.idBgrp
+    INNER JOIN sis_blok loc  ON loc.idBlok  = COALESCE(klas.idBlok, s.idBlok)
+ORDER BY l.stamnr;
 ```
+
+> De subquery op `sis_blpe` pakt de eerstvolgende lesperiode, oftewel het schooljaar dat nog moet
+> beginnen. Daarom staat er geen datum in die je jaarlijks moet bijwerken, en daarom geeft de
+> lijst niets terug zolang dat schooljaar nog niet in Magister is aangemaakt.
 
 > De kolom `Klas` bevat de **nieuwe** klas van volgend jaar. Die wordt bewust **niet**
 > geimporteerd (de leerling komt klasloos binnen); hij staat er alleen ter controle in. De echte
 > klas komt op 1 augustus via de gewone sync.
+
+> De kolom `Locatie` loopt via `COALESCE(klas.idBlok, s.idBlok)` en valt dus terug op de locatie
+> van de studie. Dat is nodig omdat voorinschrijvers vaak nog geen klas hebben; een join puur op
+> de klas laat die leerlingen weg of geeft ze een lege locatie.
