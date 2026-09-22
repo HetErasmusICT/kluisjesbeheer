@@ -16,7 +16,7 @@ Kluisjesbeheer is een webapplicatie voor het beheren van schoolkluisjes. Gebouwd
 
 ```
 1. Verse Debian 12/13 server (LXC of VM)
-2. git clone https://github.com/Rietbird/kluisjesbeheer.git /root/kluisjesbeheer
+2. git clone https://github.com/HetErasmusICT/kluisjesbeheer.git /root/kluisjesbeheer
 3. cd /root/kluisjesbeheer && bash install.sh
    → installeert Python+Node+NGINX, bouwt frontend, zet systemd-service +
      self-signed TLS-cert + cron op, genereert config.json met random SecretKey

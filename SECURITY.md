@@ -8,7 +8,7 @@ verantwoord te melden. We nemen meldingen serieus en behandelen ze met zorg.
 Meld kwetsbaarheden **privé** via GitHub, niet via een openbaar issue of een
 pull request:
 
-> **[Report a vulnerability](https://github.com/Rietbird/kluisjesbeheer/security/advisories/new)**
+> **[Report a vulnerability](https://github.com/HetErasmusICT/kluisjesbeheer/security/advisories/new)**
 > (knop onder het tabblad **Security** → *Advisories*)
 
 Zo blijft de melding besloten totdat er een fix beschikbaar is. Maak dus

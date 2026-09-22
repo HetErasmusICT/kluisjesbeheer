@@ -9,12 +9,12 @@ of via Docker) en geeft je het IP-adres + URL.
 Op de **Proxmox host** als root:
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/Rietbird/kluisjesbeheer/master/proxmox/install-ct.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/HetErasmusICT/kluisjesbeheer/master/proxmox/install-ct.sh)"
 ```
 
 > 🔍 **Liever eerst het script lezen vóór je 'm draait?**
 > ```bash
-> curl -o /tmp/install-ct.sh https://raw.githubusercontent.com/Rietbird/kluisjesbeheer/master/proxmox/install-ct.sh
+> curl -o /tmp/install-ct.sh https://raw.githubusercontent.com/HetErasmusICT/kluisjesbeheer/master/proxmox/install-ct.sh
 > less /tmp/install-ct.sh    # of: cat /tmp/install-ct.sh
 > bash /tmp/install-ct.sh
 > ```
@@ -38,7 +38,7 @@ Het script accepteert Enter voor alle defaults. Geschatte tijd:
 3. **CT aanmaken** met opgegeven parameters (volgende vrije CT-ID, willekeurig root-wachtwoord)
 4. **CT starten** + wachten tot netwerk up is
 5. **Per modus:**
-   - **Klassiek** → `git clone https://github.com/Rietbird/kluisjesbeheer.git` + `bash install.sh`
+   - **Klassiek** → `git clone https://github.com/HetErasmusICT/kluisjesbeheer.git` + `bash install.sh`
    - **Docker** → Docker repo + `apt install docker-ce` + `git clone` + `docker compose up -d --build`
 6. **Eindrapport** met CT-IP, root-wachtwoord, app-URL, volgende stappen
 
@@ -71,7 +71,7 @@ voor stappen 1-2 per modus.
 ### Klassieke installatie met defaults
 
 ```
-$ bash -c "$(curl -fsSL https://raw.githubusercontent.com/Rietbird/kluisjesbeheer/master/proxmox/install-ct.sh)"
+$ bash -c "$(curl -fsSL https://raw.githubusercontent.com/HetErasmusICT/kluisjesbeheer/master/proxmox/install-ct.sh)"
 
   Proxmox helper-script — install-ct.sh
 
@@ -126,7 +126,7 @@ Voor automation kun je antwoorden injecteren via stdin:
 
 ```bash
 # Klassiek, alle defaults, DHCP, onprivileged, ja:
-printf '1\n\n\n\n\n\n\n\nj\nj\nj\n' | bash <(curl -fsSL https://raw.githubusercontent.com/Rietbird/kluisjesbeheer/master/proxmox/install-ct.sh)
+printf '1\n\n\n\n\n\n\n\nj\nj\nj\n' | bash <(curl -fsSL https://raw.githubusercontent.com/HetErasmusICT/kluisjesbeheer/master/proxmox/install-ct.sh)
 ```
 
 ## Troubleshooting

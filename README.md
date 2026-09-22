@@ -34,7 +34,7 @@ Op een verse **Debian 12/13** server (VM of LXC), als root:
 
 ```bash
 apt-get update && apt-get install -y git
-git clone https://github.com/Rietbird/kluisjesbeheer.git /root/kluisjesbeheer
+git clone https://github.com/HetErasmusICT/kluisjesbeheer.git /root/kluisjesbeheer
 cd /root/kluisjesbeheer
 bash install.sh
 ```
@@ -55,7 +55,7 @@ troubleshooting: **[install/README.md](install/README.md)**.
 Op de **Proxmox host** als root:
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/Rietbird/kluisjesbeheer/master/proxmox/install-ct.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/HetErasmusICT/kluisjesbeheer/master/proxmox/install-ct.sh)"
 ```
 
 Maakt automatisch een Debian 12 LXC aan, installeert kluisjesbeheer
@@ -67,7 +67,7 @@ erin en geeft je IP + URL. Zie [docs/proxmox.md](docs/proxmox.md).
 <summary>Alternatief — Docker compose</summary>
 
 ```bash
-git clone https://github.com/Rietbird/kluisjesbeheer.git
+git clone https://github.com/HetErasmusICT/kluisjesbeheer.git
 cd kluisjesbeheer
 docker compose up -d --build
 ```

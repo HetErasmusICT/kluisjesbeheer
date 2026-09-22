@@ -35,10 +35,10 @@ waar Docker al draait (eigen VM, VPS, NAS, Raspberry Pi).
 mkdir -p /opt/kluisjesbeheer && cd /opt/kluisjesbeheer
 
 # Pak de docker-compose.yml + bind-mount-bestanden uit de repo
-curl -fsSL https://raw.githubusercontent.com/Rietbird/kluisjesbeheer/master/docker-compose.yml -o docker-compose.yml
+curl -fsSL https://raw.githubusercontent.com/HetErasmusICT/kluisjesbeheer/master/docker-compose.yml -o docker-compose.yml
 mkdir -p docker
-curl -fsSL https://raw.githubusercontent.com/Rietbird/kluisjesbeheer/master/docker/nginx.conf -o docker/nginx.conf
-curl -fsSL https://raw.githubusercontent.com/Rietbird/kluisjesbeheer/master/docker/init-config.sh -o docker/init-config.sh
+curl -fsSL https://raw.githubusercontent.com/HetErasmusICT/kluisjesbeheer/master/docker/nginx.conf -o docker/nginx.conf
+curl -fsSL https://raw.githubusercontent.com/HetErasmusICT/kluisjesbeheer/master/docker/init-config.sh -o docker/init-config.sh
 chmod +x docker/init-config.sh
 ```
 
@@ -60,7 +60,7 @@ docker compose pull
 
 ```bash
 # In docker-compose.yml: comment `image:` regels uit en uncomment `build: .`
-git clone https://github.com/Rietbird/kluisjesbeheer.git
+git clone https://github.com/HetErasmusICT/kluisjesbeheer.git
 cd kluisjesbeheer
 docker compose build
 ```
