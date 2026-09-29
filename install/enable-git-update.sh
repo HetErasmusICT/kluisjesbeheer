@@ -57,24 +57,34 @@ TS="$(date +%Y%m%d-%H%M%S)"; BK="/root/kluisjes-pre-gitconvert-$TS"; mkdir -p "$
 [[ -f "$APP_DIR/backend/config.json" ]]     && cp -a "$APP_DIR/backend/config.json" "$BK/"
 echo ">> Backup in $BK:"; ls -la "$BK"
 
+# Alles wat de checkout raakt (git, npm, pip, de DB-backup) draait als de app-user, nooit als
+# root: de app-user is eigenaar van de code en van .git. Zou root daar git of npm draaien, dan
+# kan een overgenomen app via .git/config (core.fsmonitor, hooks) of package.json commando's
+# als root laten uitvoeren (gevonden 29-09-2026). Root doet alleen de herstart.
+APP_HOME="$(getent passwd "$APP_USER" | cut -d: -f6)"
+[[ -d "$APP_HOME" && "$(stat -c '%U' "$APP_HOME")" == "$APP_USER" ]] || APP_HOME="$APP_DIR"
+ALS_APP="runuser -u $APP_USER -- env HOME=$APP_HOME"
+echo ">> APP_HOME=$APP_HOME"
+
 # --- 6) Omzetten naar git-checkout (forceert code naar origin/$BRANCH) ---
-GIT="git -c safe.directory=$APP_DIR -C $APP_DIR"
+chown -R "$APP_USER:$APP_USER" "$APP_DIR"
+GIT="$ALS_APP git -C $APP_DIR"
 if [[ ! -d "$APP_DIR/.git" ]]; then
   $GIT init -q
   $GIT remote add origin "$REPO_URL" 2>/dev/null || $GIT remote set-url origin "$REPO_URL"
 fi
 $GIT fetch -q origin "$BRANCH"
 $GIT checkout -f -B "$BRANCH" "origin/$BRANCH"
-chown -R "$APP_USER:$APP_USER" "$APP_DIR"
 
-# --- 7) Root-helper voor de update-knop (detecteert DB net als hierboven) ---
-cat > /usr/local/sbin/kluisjes-update <<HELPER
+# --- 7) Update voor de knop (Beheer -> Onderhoud): werkscript van root, draait als app-user ---
+install -d -m 0755 /usr/local/lib
+cat > /usr/local/lib/kluisjes-update-werk <<WERK
 #!/bin/bash
+# Runs as $APP_USER, started by /usr/local/sbin/kluisjes-update: backup, pull, deps, build.
 set -euo pipefail
 APP_DIR="$APP_DIR"
-APP_USER="$APP_USER"
 BRANCH="$BRANCH"
-GIT="git -c safe.directory=\$APP_DIR -C \$APP_DIR"
+GIT="git -C \$APP_DIR"
 if [[ ! -d "\$APP_DIR/.git" ]]; then echo "ERROR: \$APP_DIR is geen git-checkout" >&2; exit 1; fi
 DB=""
 for cand in "\$APP_DIR/backend/data/kluisjesbeheer.db" "\$APP_DIR/backend/kluisjesbeheer.db"; do
@@ -82,7 +92,7 @@ for cand in "\$APP_DIR/backend/data/kluisjesbeheer.db" "\$APP_DIR/backend/kluisj
 done
 if [[ -n "\$DB" ]]; then
     BACKUP_DIR="\$(dirname "\$DB")/backups"
-    install -d -o "\$APP_USER" -g "\$APP_USER" "\$BACKUP_DIR"
+    mkdir -p "\$BACKUP_DIR"
     TS=\$(date +%Y%m%d-%H%M%S)
     sqlite3 "\$DB" ".backup '\$BACKUP_DIR/pre-update-\$TS.db'" 2>/dev/null || cp -a "\$DB" "\$BACKUP_DIR/pre-update-\$TS.db"
 fi
@@ -92,8 +102,17 @@ NEW=\$(\$GIT rev-parse --short HEAD)
 CHANGED=\$(\$GIT diff --name-only "\$OLD" "\$NEW" || true)
 if grep -q 'backend/requirements.txt' <<<"\$CHANGED"; then "$VENV/bin/pip" install -q -r "\$APP_DIR/backend/requirements.txt"; fi
 if grep -qE '^frontend/' <<<"\$CHANGED"; then ( cd "\$APP_DIR/frontend" && npm ci --silent && npm run build ); fi
-chown -R "\$APP_USER:\$APP_USER" "\$APP_DIR"
 echo "OK: \$OLD -> \$NEW (herstart volgt)"
+WERK
+chown root:root /usr/local/lib/kluisjes-update-werk
+chmod 0755 /usr/local/lib/kluisjes-update-werk
+
+cat > /usr/local/sbin/kluisjes-update <<HELPER
+#!/bin/bash
+# Called via sudo by the app. The work runs as $APP_USER; only the restart runs as root.
+set -euo pipefail
+cd /
+$ALS_APP /usr/local/lib/kluisjes-update-werk
 nohup bash -c 'sleep 2; systemctl restart $SERVICE' >/dev/null 2>&1 &
 exit 0
 HELPER
@@ -104,9 +123,8 @@ echo "$APP_USER ALL=(root) NOPASSWD: /usr/local/sbin/kluisjes-update" > /etc/sud
 chmod 0440 /etc/sudoers.d/kluisjes-update
 visudo -cf /etc/sudoers.d/kluisjes-update
 
-# --- 9) Frontend bouwen + service herstarten ---
-( cd "$APP_DIR/frontend" && npm ci --silent && npm run build )
-chown -R "$APP_USER:$APP_USER" "$APP_DIR"
+# --- 9) Frontend bouwen (als app-user) + service herstarten ---
+$ALS_APP bash -c "cd '$APP_DIR/frontend' && npm ci --silent && npm run build"
 systemctl restart "$SERVICE"
 
 # --- 10) Verificatie ---
