@@ -462,20 +462,24 @@ EOF
 install_update_helper() {
     step "Update helper (voor Beheer -> Onderhoud)"
 
+    # Everything that touches the checkout (git, npm, pip, the DB backup) runs as the app user:
+    # the app user owns the code and .git, so running git or npm there as root would let a
+    # compromised app run commands as root through 'sudo kluisjes-update' (found 29-09-2026).
+    # The work lives in a root-owned script; the sudo helper only starts it and restarts.
+    local werk="/usr/local/lib/kluisjes-update-werk"
     local helper="/usr/local/sbin/kluisjes-update"
+    install -d -m 755 /usr/local/lib
 
-    cat > "$helper" <<'HELPER_EOF'
+    cat > "$werk" <<'WERK_EOF'
 #!/bin/bash
-# Update kluisjesbeheer vanuit git + herstart de service.
-# Aangeroepen door de app via:  sudo /usr/local/sbin/kluisjes-update
+# Runs as the app user, started by /usr/local/sbin/kluisjes-update: backup, pull, deps, build.
 set -euo pipefail
 
 APP_DIR="/opt/kluisjesbeheer"
-APP_USER="kluisjes"
 BRANCH="master"
 DB="$APP_DIR/backend/kluisjesbeheer.db"
 BACKUP_DIR="$APP_DIR/backend/backups"
-GIT="git -c safe.directory=$APP_DIR -C $APP_DIR"
+GIT="git -C $APP_DIR"
 
 if [[ ! -d "$APP_DIR/.git" ]]; then
     echo "ERROR: $APP_DIR is geen git-checkout; updaten niet mogelijk" >&2
@@ -484,7 +488,7 @@ fi
 
 # Pre-update DB-backup (consistent via sqlite .backup; valt terug op cp)
 if [[ -f "$DB" ]]; then
-    install -d -o "$APP_USER" -g "$APP_USER" "$BACKUP_DIR"
+    mkdir -p "$BACKUP_DIR"
     TS=$(date +%Y%m%d-%H%M%S)
     sqlite3 "$DB" ".backup '$BACKUP_DIR/pre-update-$TS.db'" 2>/dev/null || cp -a "$DB" "$BACKUP_DIR/pre-update-$TS.db"
 fi
@@ -503,15 +507,26 @@ if grep -qE '^frontend/' <<<"$CHANGED"; then
     ( cd "$APP_DIR/frontend" && npm ci --silent && npm run build )
 fi
 
-chown -R "$APP_USER:$APP_USER" "$APP_DIR"
 echo "OK: $OLD -> $NEW (herstart volgt)"
+WERK_EOF
+    chown root:root "$werk"
+    chmod 755 "$werk"
+
+    cat > "$helper" <<'HELPER_EOF'
+#!/bin/bash
+# Update kluisjesbeheer vanuit git + herstart de service.
+# Aangeroepen door de app via:  sudo /usr/local/sbin/kluisjes-update
+# The work runs as the app user; only the restart runs as root.
+set -euo pipefail
+cd /
+runuser -u kluisjes -- env HOME=/opt/kluisjesbeheer /usr/local/lib/kluisjes-update-werk
 # Herstart op de achtergrond zodat het HTTP-antwoord de UI nog bereikt
 nohup bash -c 'sleep 2; systemctl restart kluisjesbeheer' >/dev/null 2>&1 &
 exit 0
 HELPER_EOF
     chown root:root "$helper"
     chmod 750 "$helper"
-    info "Helper-script: $helper"
+    info "Helper-script: $helper (werk als app-user: $werk)"
 
     local sudoers="/etc/sudoers.d/kluisjesbeheer-update"
     cat > "$sudoers" <<EOF
