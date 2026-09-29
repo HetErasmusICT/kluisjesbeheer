@@ -4,7 +4,7 @@
 # en installeert kluisjesbeheer erin (klassiek of via Docker).
 #
 # Gebruik op de Proxmox host:
-#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/Rietbird/kluisjesbeheer/master/proxmox/install-ct.sh)"
+#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/HetErasmusICT/kluisjesbeheer/master/proxmox/install-ct.sh)"
 
 set -euo pipefail
 
@@ -246,7 +246,7 @@ install_classic() {
     pct exec "$CTID" -- bash -c "
         export DEBIAN_FRONTEND=noninteractive
         apt-get update -qq && apt-get install -y -qq git ca-certificates >/dev/null
-        git clone --depth 1 https://github.com/Rietbird/kluisjesbeheer.git /root/kluisjesbeheer
+        git clone --depth 1 https://github.com/HetErasmusICT/kluisjesbeheer.git /root/kluisjesbeheer
         cd /root/kluisjesbeheer && bash install.sh
     " || die "install.sh in CT $CTID is gefaald — debug met 'pct enter $CTID'."
     ok "Klassieke installatie afgerond"
@@ -269,7 +269,7 @@ install_docker() {
         apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin >/dev/null
         systemctl enable --now docker >/dev/null
 
-        git clone --depth 1 https://github.com/Rietbird/kluisjesbeheer.git /opt/kluisjesbeheer
+        git clone --depth 1 https://github.com/HetErasmusICT/kluisjesbeheer.git /opt/kluisjesbeheer
         cd /opt/kluisjesbeheer
         # Bouw lokaal (geen GHCR-publish yet) -- override schrijft 'build: .'
         cat > docker-compose.override.yml <<EOF
@@ -326,7 +326,7 @@ ${BOLD}Volgende stappen:${NC}
   4. Vraag bij SWP een IP-whitelist aan voor het uitgaande IP:
      pct exec $CTID -- curl -s https://ifconfig.me
 
-Volledige docs: https://github.com/Rietbird/kluisjesbeheer
+Volledige docs: https://github.com/HetErasmusICT/kluisjesbeheer
 EOF
 }
 

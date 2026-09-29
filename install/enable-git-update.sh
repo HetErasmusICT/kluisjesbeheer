@@ -9,12 +9,12 @@
 # backup gemaakt.
 #
 # Gebruik (als root):
-#   curl -fsSL https://raw.githubusercontent.com/Rietbird/kluisjesbeheer/master/install/enable-git-update.sh -o /tmp/eg.sh
+#   curl -fsSL https://raw.githubusercontent.com/HetErasmusICT/kluisjesbeheer/master/install/enable-git-update.sh -o /tmp/eg.sh
 #   sudo bash /tmp/eg.sh                 # detecteert zelf de install-map
 #   sudo bash /tmp/eg.sh /pad/naar/app   # of geef de map expliciet mee
 set -euo pipefail
 
-REPO_URL="https://github.com/Rietbird/kluisjesbeheer.git"
+REPO_URL="https://github.com/HetErasmusICT/kluisjesbeheer.git"
 BRANCH="master"
 
 [[ $EUID -eq 0 ]] || { echo "FOUT: draai als root (sudo bash ...)."; exit 1; }

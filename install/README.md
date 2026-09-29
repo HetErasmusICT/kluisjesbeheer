@@ -164,7 +164,7 @@ Twee paden — kies wat past:
 ```bash
 ssh root@<server-ip>
 apt-get update && apt-get install -y git
-git clone https://github.com/Rietbird/kluisjesbeheer.git /root/kluisjesbeheer
+git clone https://github.com/HetErasmusICT/kluisjesbeheer.git /root/kluisjesbeheer
 cd /root/kluisjesbeheer
 bash install.sh
 ```
@@ -437,7 +437,7 @@ Voor diepere problemen: `journalctl -u kluisjesbeheer -n 200 --no-pager`
 ## Voor school-IT (overhandig na uitrol)
 
 Geef hen:
-1. Link naar deze repo: <https://github.com/Rietbird/kluisjesbeheer>
+1. Link naar deze repo: <https://github.com/HetErasmusICT/kluisjesbeheer>
    — voor toekomstige updates (`git pull && bash install.sh` op de
    server). Of, bij offline-omgeving, een verse
    `install/dist/kluisjesbeheer-install.tgz`.
